@@ -115,11 +115,17 @@ class ProductController extends Controller
 
         $user = Auth::user();
 
-        if(!$file) {
-            return response()->json(['message' => 'Required product image'], Response::HTTP_BAD_REQUEST);
-        }
+        if(!$file || $request->image == null) {
+            
+            $imageName = 'default-image.png';
 
-        $imageName = $request->file('image')->hashName();
+        } else {
+            $imageName = $request->file('image')->hashName();
+            $file_path = Storage::disk('local')->put('public/images/'. $imageName, file_get_contents($request->file('image')));
+        }
+            
+
+        
         $product = Product::create([
             'category_id' => $request->category_id,
             'brand_id' => $request->brand_id,
@@ -134,7 +140,6 @@ class ProductController extends Controller
             'is_active' => $request->is_active == 'true' ? 1 : 0,
             'created_by' => $request->created_by
         ]);
-        $file_path = Storage::disk('local')->put('public/images/'. $imageName, file_get_contents($request->file('image')));
 
         UserLog::create([
             'user_id' => $user->id,
@@ -231,6 +236,12 @@ class ProductController extends Controller
     {
         $user = Auth::user();
         $product = Product::findOrFail($id);
+
+        if($product->image !== 'default-image.png') {
+            
+            Storage::delete('public/images/'. $product->image);
+        }
+        
         $product_name = $product->product_name;
         $product->delete();
 
