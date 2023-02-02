@@ -21,20 +21,30 @@ class CustomerController extends Controller
      */
     public function index(Request $request)
     {
-        $keywords = $request->keywords;
-        $customer = Customer::where(function ($query) use ($keywords) {
-            if ($keywords) {
-                $query->where('customer_name', 'like', '%' . $keywords . '%')
-                    ->Orwhere('gender', 'like', '%' . $keywords . '%')
-                    ->Orwhere('email', 'like', '%' . $keywords . '%')
-                    ->Orwhere('address', 'like', '%' . $keywords . '%')
-                    ->Orwhere('phone_number', 'like', '%' . $keywords . '%');
-            }
-        })
-            ->orderBy('id', 'DESC')
-            ->paginate();
+        try {
+            
+            $keywords = $request->keywords;
+            $customer = Customer::where(function ($query) use ($keywords) {
+                if ($keywords) {
+                    $query->where('customer_name', 'like', '%' . $keywords . '%')
+                        ->Orwhere('gender', 'like', '%' . $keywords . '%')
+                        ->Orwhere('email', 'like', '%' . $keywords . '%')
+                        ->Orwhere('address', 'like', '%' . $keywords . '%')
+                        ->Orwhere('phone_number', 'like', '%' . $keywords . '%');
+                }
+            })
+                ->orderBy('id', 'DESC')
+                ->paginate();
 
-        return CustomerResource::collection($customer);
+            return CustomerResource::collection($customer);
+
+        } catch (Exception $e) {
+            
+            if($e->getCode() == 0) {
+                return response()->json(['message' => 'BRAND NOT FOUND'], Response::HTTP_NOT_FOUND);
+            } else
+                return response()->json(['message' => 'SERVER ERROR'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
         /**
@@ -44,8 +54,18 @@ class CustomerController extends Controller
      */
     public function show_all_customer()
     {
-        $customer = Customer::where('is_active', true)->get();
-        return CustomerResource::collection($customer);
+        try {
+            
+            $customer = Customer::where('is_active', true)->get();
+            return CustomerResource::collection($customer);
+
+        } catch (Exception $e) {
+            
+            if($e->getCode() == 0) {
+                return response()->json(['message' => 'BRAND NOT FOUND'], Response::HTTP_NOT_FOUND);
+            } else
+                return response()->json(['message' => 'SERVER ERROR'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
     /**
@@ -56,9 +76,19 @@ class CustomerController extends Controller
      */
     public function store(Request $request)
     {
-        $data = $request->only('customer_name', 'phone_number', 'gender', 'address', 'email', 'is_active', 'created_by');
-        $customer = Customer::create($data);
-        return new CustomerResource($customer);
+        try {
+            
+            $data = $request->only('customer_name', 'phone_number', 'gender', 'address', 'email', 'is_active', 'created_by');
+            $customer = Customer::create($data);
+            return new CustomerResource($customer);
+
+        } catch (Exception $e) {
+            
+            if($e->getCode() == 0) {
+                return response()->json(['message' => 'BRAND NOT FOUND'], Response::HTTP_NOT_FOUND);
+            } else
+                return response()->json(['message' => 'SERVER ERROR'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
     /**
@@ -69,9 +99,19 @@ class CustomerController extends Controller
      */
     public function show($id)
     {
-        $customer = Customer::findOrFail($id);
+        try {
+            
+            $customer = Customer::findOrFail($id);
 
-        return new CustomerResource($customer);
+            return new CustomerResource($customer);
+
+        } catch (Exception $e) {
+            
+            if($e->getCode() == 0) {
+                return response()->json(['message' => 'BRAND NOT FOUND'], Response::HTTP_NOT_FOUND);
+            } else
+                return response()->json(['message' => 'SERVER ERROR'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
     /**
@@ -83,17 +123,27 @@ class CustomerController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $customer = Customer::find($id);
+        try {
+            
+            $customer = Customer::find($id);
 
-        $customer->customer_name = $request->customer_name;
-        $customer->phone_number = $request->phone_number;
-        $customer->address = $request->address;
-        $customer->gender = $request->gender;
-        $customer->email = $request->email;
-        $customer->is_active = $request->is_active;
-        $customer->save();
+            $customer->customer_name = $request->customer_name;
+            $customer->phone_number = $request->phone_number;
+            $customer->address = $request->address;
+            $customer->gender = $request->gender;
+            $customer->email = $request->email;
+            $customer->is_active = $request->is_active;
+            $customer->save();
 
-        return new CustomerResource($customer->refresh());
+            return new CustomerResource($customer->refresh());
+
+        } catch (Exception $e) {
+            
+            if($e->getCode() == 0) {
+                return response()->json(['message' => 'BRAND NOT FOUND'], Response::HTTP_NOT_FOUND);
+            } else
+                return response()->json(['message' => 'SERVER ERROR'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
     /**
@@ -104,9 +154,19 @@ class CustomerController extends Controller
      */
     public function destroy($id)
     {
-        $customer = Customer::findOrFail($id);
-        $customer->delete();
+        try {
+            
+            $customer = Customer::findOrFail($id);
+            $customer->delete();
 
-        return response()->noContent();
+            return response()->noContent();
+
+        } catch (Exception $e) {
+            
+            if($e->getCode() == 0) {
+                return response()->json(['message' => 'BRAND NOT FOUND'], Response::HTTP_NOT_FOUND);
+            } else
+                return response()->json(['message' => 'SERVER ERROR'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 }

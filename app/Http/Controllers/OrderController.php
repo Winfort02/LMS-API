@@ -144,7 +144,7 @@ class OrderController extends Controller
         UserLog::create([
             'user_id' => $user->id,
             'logs' => 'Generate Sales Order',
-            'remarks' => 'Add new sales order to customer '. $customer->first_name . ' '. $customer->last_name .' with the total amount of '. $request->total_amount,
+            'remarks' => 'Add new sales order to customer '. $customer->customer_name. ' with the total amount of '. $request->total_amount,
             'date' => Carbon::now()->format('Y-m-d'),
             'created_at' => Carbon::now(),
             'updated_at' => Carbon::now()
