@@ -40,6 +40,9 @@ Route::post('register', RegisterController::class);
 // Private Routes
 Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::post('logout', LogoutController::class);
+
+
+    // User Routes
     Route::apiResource('users', UserController::class);
 
 

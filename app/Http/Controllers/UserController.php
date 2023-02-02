@@ -26,56 +26,45 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
-        $keywords = $request->keywords;
-        $users = User::where(function ($query) use ($keywords) {
-            if ($keywords) {
-                $query->where('username', 'like', '%' . $keywords . '%')
-                    ->Orwhere('name', 'like', '%' . $keywords . '%')
-                    ->Orwhere('email', 'like', '%' . $keywords . '%')
-                    ->Orwhere('user_type', 'like', '%' . $keywords . '%');
-            }
-        })
-            ->orderBy('id', 'DESC')
-            ->paginate();
+        try {
+            
+            $keywords = $request->keywords;
+            $users = User::where(function ($query) use ($keywords) {
+                if ($keywords) {
+                    $query->where('username', 'like', '%' . $keywords . '%')
+                        ->Orwhere('name', 'like', '%' . $keywords . '%')
+                        ->Orwhere('email', 'like', '%' . $keywords . '%')
+                        ->Orwhere('user_type', 'like', '%' . $keywords . '%');
+                }
+            })
+                ->orderBy('id', 'DESC')
+                ->paginate();
 
-        return UserResource::collection($users);
-    }
+            return UserResource::collection($users);
 
-    public function check_token() {
-        $user = Auth::User();
-        $user_token = $user->currentAccessToken();
-        if($user_token->tokenable !== null) return response()->json(['authorized' => true]);
-    }
-
-
-    public function user_list_by_user_types(Request $request)
-    {
-        $user_types = $request->all();
-        $users = User::where(function ($query) use ($user_types) {
-            foreach ($user_types as $user_type) {
-                $query->orWhere('user_type', $user_type);
-            }
-        })
-            ->where('is_active', true)
-            ->get();
-
-        return UserResource::collection($users);
-    }
-
-
-
-    public function get_all_users_is_active()
-    {
-        $users = User::with('user_rights')->where('is_active', true)
-            ->get();
-
-        $user_list = array();
-        foreach ($users as $user) {
-            array_push($user_list, $user);
+        } catch (Exception $e) {
+            
+            return response()->json(['message' => 'SERVER ERROR'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-
-        return UserResource::collection($user_list);
     }
+
+    public function check_token() 
+    {
+        try {
+            
+            $user = Auth::User();
+            $user_token = $user->currentAccessToken();
+            if($user_token->tokenable !== null) {
+                return response()->json(['authorized' => true]);
+            } else
+                return response()->json(['authorized' => false]);
+
+        } catch (Exception $e) {
+            
+            return response()->json(['message' => 'SERVER ERROR'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
 
     /**
      * Store a newly created resource in storage.
@@ -85,19 +74,26 @@ class UserController extends Controller
      */
     public function store(RegisterRequest $request)
     {
-        //create User
-        $current_user = Auth::user();
-        $data = $request->only('username', 'name', 'email', 'user_type', 'is_active', 'password');
-        $user = User::create($data);
-        UserLog::create([
-            'user_id' => $current_user->id,
-            'logs' => 'User Management',
-            'remarks' => 'Added new user ' . $request->name,
-            'date' => Carbon::now()->format('Y-m-d'),
-            'created_at' => Carbon::now(),
-            'updated_at' => Carbon::now()
-        ]);
-        return new UserResource($user);
+        try {
+            
+            //create User
+            $current_user = Auth::user();
+            $data = $request->only('username', 'name', 'email', 'user_type', 'is_active', 'password');
+            $user = User::create($data);
+            UserLog::create([
+                'user_id' => $current_user->id,
+                'logs' => 'User Management',
+                'remarks' => 'Added new user ' . $request->name,
+                'date' => Carbon::now()->format('Y-m-d'),
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now()
+            ]);
+            return new UserResource($user);
+
+        } catch (Exception $e) {
+            
+            return response()->json(['message' => 'SERVER ERROR'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
     /**
@@ -108,9 +104,20 @@ class UserController extends Controller
      */
     public function show($id)
     {
-        $user = User::findOrFail($id);
+        try {
+            
+            $user = User::findOrFail($id);
 
-        return new UserResource($user);
+            return new UserResource($user);
+        
+        } catch (Exception $e) {
+            if($e->getCode() == 0) {
+
+                return response()->json(['message' => 'USER NOT FOUND'], Response::HTTP_NOT_FOUND);
+            } else
+
+                return response()->json(['message' => 'SERVER ERROR'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
     /**
@@ -122,42 +129,53 @@ class UserController extends Controller
      */
     public function update(Request $request, $id)
     {
+        try {
+            
+            $current_user = Auth::user();
+            $user = User::find($id);
+            $user->name = $request->name;
+            $user->user_type = $request->user_type;
+            $user->username = $request->username;
+            $user->email = $request->email;
+            // $user->password =   $request->password;
+            $user->is_active = $request->is_active;
+            $user->save();
+            UserLog::create([
+                'user_id' => $current_user->id,
+                'logs' => 'User Management',
+                'remarks' => 'Update user details',
+                'date' => Carbon::now()->format('Y-m-d'),
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now()
+            ]);
 
-        $current_user = Auth::user();
-        $user = User::find($id);
-        $user->name = $request->name;
-        $user->user_type = $request->user_type;
-        $user->username = $request->username;
-        $user->email = $request->email;
-        // $user->password =   $request->password;
-        $user->is_active = $request->is_active;
-        $user->save();
-        UserLog::create([
-            'user_id' => $current_user->id,
-            'logs' => 'User Management',
-            'remarks' => 'Update user details',
-            'date' => Carbon::now()->format('Y-m-d'),
-            'created_at' => Carbon::now(),
-            'updated_at' => Carbon::now()
-        ]);
+            return new UserResource($user->refresh());
 
-        return new UserResource($user->refresh());
+        } catch (Exception $e) {
+            
+            if($e->getCode() == 0) {
+                return response()->json(['message' => 'USER NOT FOUND'], Response::HTTP_NOT_FOUND);
+            } else
+                return response()->json(['message' => 'SERVER ERROR'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
 
     public function change_password(Request $request, $id): UserResource
     {
 
-        $user = User::find($id);
+        try {
+            
+            $user = User::find($id);
+            $user->password = $request->new_password;
+            $user->save();
 
-        // if (Hash::check($request->password, $user->password)) {
-        //             $user->password = bcrypt($request->password);
-        //             $user->save();
-        //         }
-        $user->password = $request->new_password;
-        $user->save();
+            return new UserResource($user->refresh());
 
-        return new UserResource($user->refresh());
+        } catch (Exception $e) {
+            
+            return response()->json(['message' => 'SERVER ERROR'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
     /**
@@ -168,20 +186,30 @@ class UserController extends Controller
      */
     public function destroy($id)
     {
-        $current_user = Auth::user();
-        $user = User::findOrFail($id);
-        $user_name = $user->name;
-        $user->delete();
-        UserLog::create([
-            'user_id' => $current_user->id,
-            'logs' => 'User Management',
-            'remarks' => 'Deleted user ' . $user_name,
-            'date' => Carbon::now()->format('Y-m-d'),
-            'created_at' => Carbon::now(),
-            'updated_at' => Carbon::now()
-        ]);
-        
+        try {
+            
+            $current_user = Auth::user();
+            $user = User::findOrFail($id);
+            $user_name = $user->name;
+            $user->delete();
+            UserLog::create([
+                'user_id' => $current_user->id,
+                'logs' => 'User Management',
+                'remarks' => 'Deleted user ' . $user_name,
+                'date' => Carbon::now()->format('Y-m-d'),
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now()
+            ]);
+            
 
-        return response()->noContent();
+            return response()->noContent();
+
+        } catch (Exception $e) {
+            
+            if($e->getCode() == 0) {
+                return response()->json(['message' => 'USER NOT FOUND'], Response::HTTP_NOT_FOUND);
+            } else
+                return response()->json(['message' => 'SERVER ERROR'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 }
