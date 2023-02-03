@@ -161,20 +161,39 @@ class UserController extends Controller
     }
 
 
-    public function change_password(Request $request, $id): UserResource
+    public function change_password(Request $request)
     {
 
         try {
             
-            $user = User::find($id);
-            $user->password = $request->new_password;
-            $user->save();
+            if(Auth::check()) {
+                
+                $id = Auth::user()->id;
+                $user = User::find($id);
 
-            return new UserResource($user->refresh());
+                if($request->confirm_password !== $request->new_password) {
+                    return response()->json(['message' => 'Password and Confirm Password does not match'], Response::HTTP_INTERNAL_SERVER_ERROR);
+                }
+
+                $user->password = $request->new_password;
+                $user->save();
+
+                UserLog::create([
+                    'user_id' => $user->id,
+                    'logs' => 'User Management',
+                    'remarks' => 'User ' . $user->name . ' has the change password',
+                    'date' => Carbon::now()->format('Y-m-d'),
+                    'created_at' => Carbon::now(),
+                    'updated_at' => Carbon::now()
+                ]);
+    
+                return new UserResource($user->refresh());
+            } else 
+                return response()->json(['message' => 'UNAUTHORIZED'], Response::HTTP_UNAUTHORIZED);
 
         } catch (Exception $e) {
             
-            return response()->json(['message' => 'SERVER ERROR'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return response()->json(['message' => 'SERVER ERROR', 'error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
