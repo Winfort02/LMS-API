@@ -50,7 +50,7 @@
             @else
               <td class="text-danger"> Cancel </td>
             @endif
-            <td class="text-right">P {{ number_format($item->payment, 2) }}</td>
+            <td class="text-right">P {{ number_format($item->total_amount, 2) }}</td>
           </tr>
         @endforeach
           <tr>

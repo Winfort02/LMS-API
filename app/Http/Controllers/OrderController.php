@@ -562,7 +562,7 @@ class OrderController extends Controller
         }
         if($order->count() > 0) {
             $total_sales = ($order) ? $order->sum('total_amount') : 0;
-            $total_cash = ($order) ? $order->sum('payment') : 0;
+            $total_cash = ($order) ? $order->sum('total_amount') : 0;
         } else {
             $total_sales = 0;
             $total_cash = 0;

@@ -33,20 +33,24 @@ class DashboardController extends Controller
         $suppliers = Supplier::where('is_active', true)->get();
         $categories = Category::where('is_active', true)->get();
         $products = Product::where('is_active', true)->get();
-        $sales = Order::where('sales_date', $current_date)->where('order_status', 'completed')->get();
-        $cash_sales = Order::where('sales_date', $current_date)->where('sales_type', 'CASH')->get();
-        $charge_sales = Order::where('sales_date', $current_date)->where('sales_type', 'CHARGE')->get();
-        $delivery_sales = Order::where('sales_date', $current_date)->where('sales_type', 'DELIVERY')->get();
+        $sales = Order::where('sales_date', $current_date)->where('order_status', 'Completed')->get();
+        $cash_sales = Order::where('sales_date', $current_date)->where('sales_type', 'CASH')->where('order_status', 'Completed')->get();
+        $charge_sales = Order::where('sales_date', $current_date)->where('sales_type', 'CHARGE')->where('order_status', 'Completed')->get();
+        $delivery_sales = Order::where('sales_date', $current_date)->where('sales_type', 'DELIVERY')->where('order_status', 'Completed')->get();
+
+        $cash =  ($cash_sales->count() > 0) ? $cash_sales->sum('payment') : 0;
+        $delivery =  ($delivery_sales->count() > 0) ? $delivery_sales->sum('total_amount') : 0;
+        $charge =  ($charge_sales->count() > 0) ? $charge_sales->sum('total_amount') : 0;
 
         $data = [
             'products' => ($products->count() > 0 ) ? $products->count() : 0,
             'categories' => ($categories->count() > 0) ? $categories->count() : 0,
             'suppliers' => ($suppliers->count() > 0) ? $suppliers->count() : 0,
-            'customers' => ($customers->count() > 0) ? $customers->count() : 0,
-            'current_sales' => ($sales->count() > 0) ? $sales->sum('payment') : 0,
-            'cash_sales' => ($cash_sales->count() > 0) ? $cash_sales->sum('payment') : 0,
-            'charge_sales' => ($charge_sales->count() > 0) ? $charge_sales->sum('payment') : 0,
-            'delivery_sales' => ($delivery_sales->count() > 0) ? $delivery_sales->sum('payment') : 0
+            'customers' => ($customers->count() > 0) ? $customers->count() : 0, 
+            'cash_sales' => $cash,
+            'charge_sales' => $charge,
+            'delivery_sales' => $delivery,
+            'current_sales' => $cash + $charge + $delivery
         ];
 
         return  response()->json(['data' =>  $data], Response::HTTP_OK);
@@ -76,14 +80,12 @@ class DashboardController extends Controller
         $cancel = Order::select(DB::raw("(sum(total_amount)) as total_sales"), DB::raw("(DATE_FORMAT(sales_date, '%m')) as month"))
             ->whereYear('sales_date', $year)
             ->where('order_status', 'Cancel')
-            ->where('status', false)
             ->groupBy(DB::raw("DATE_FORMAT(sales_date, '%m')"))
             ->get();
 
-        $completed = Order::select(DB::raw("(sum(payment)) as total_sales"), DB::raw("(DATE_FORMAT(sales_date, '%m')) as month"))
+        $completed = Order::select(DB::raw("(sum(total_amount)) as total_sales"), DB::raw("(DATE_FORMAT(sales_date, '%m')) as month"))
         ->whereYear('sales_date', $year)
         ->where('order_status', 'Completed')
-        ->where('status', true)
         ->groupBy(DB::raw("DATE_FORMAT(sales_date, '%m')"))
         ->get();
 
