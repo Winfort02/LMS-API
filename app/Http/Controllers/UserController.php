@@ -231,4 +231,43 @@ class UserController extends Controller
                 return response()->json(['message' => 'SERVER ERROR'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
+
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function reset_password(Request $request, $id)
+
+    {
+
+        try {
+            
+            $user = User::find($id);
+
+            if($request->confirm_password !== $request->new_password) {
+                return response()->json(['message' => 'Password and Confirm Password does not match'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            }
+
+            $user->password = $request->new_password;
+            $user->save();
+
+            UserLog::create([
+                'user_id' => $user->id,
+                'logs' => 'User Management',
+                'remarks' => 'User ' . $user->name . ' has the change password by the ' . Auth::user()->name,
+                'date' => Carbon::now()->format('Y-m-d'),
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now()
+            ]);
+
+            return new UserResource($user->refresh());
+
+        } catch (Exception $e) {
+            
+            return response()->json(['message' => 'SERVER ERROR', 'error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
 }

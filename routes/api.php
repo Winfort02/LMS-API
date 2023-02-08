@@ -43,6 +43,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
 
 
     // User Routes
+    Route::post('users/reset-password/{id}', [UserController::class, 'reset_password']);
     Route::post('users/change-password', [UserController::class, 'change_password']);
     Route::apiResource('users', UserController::class);
 
