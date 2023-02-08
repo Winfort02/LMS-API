@@ -254,9 +254,9 @@ class UserController extends Controller
             $user->save();
 
             UserLog::create([
-                'user_id' => $user->id,
+                'user_id' => Auth::user()->id,
                 'logs' => 'User Management',
-                'remarks' => 'User ' . $user->name . ' has the change password by the ' . Auth::user()->name,
+                'remarks' => 'User ' . Auth::user()->name. ' has the change password of ' . $user->name,
                 'date' => Carbon::now()->format('Y-m-d'),
                 'created_at' => Carbon::now(),
                 'updated_at' => Carbon::now()

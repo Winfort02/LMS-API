@@ -30,7 +30,7 @@
           <td style="text-transform: uppercase;"> PAYMENT TYPE :  {{ $data->payment_type }}</td>
           <td style="text-transform: uppercase;"> ADDRESS:  {{ $data->customer->address }}  </td>
           <td style="text-transform: uppercase;"> CONTACT NUMBER: {{ $data->customer->phone_number }} </td>
-          <td style="text-transform: uppercase;" colspan="2"> BALANCE: P {{ number_format(($data->total_amount - $data->payment) , 2) }}  </td>
+          <td style="text-transform: uppercase;" colspan="2"> BALANCE: P {{ number_format(($data->total_amount - $data->payment) > 0 ? ($data->total_amount - $data->payment) : 0 , 2) }}  </td>
         </tr>
         <tr>
           <td> REMARKS : </td>

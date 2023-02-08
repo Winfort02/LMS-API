@@ -38,7 +38,7 @@ class DashboardController extends Controller
         $charge_sales = Order::where('sales_date', $current_date)->where('sales_type', 'CHARGE')->where('order_status', 'Completed')->get();
         $delivery_sales = Order::where('sales_date', $current_date)->where('sales_type', 'DELIVERY')->where('order_status', 'Completed')->get();
 
-        $cash =  ($cash_sales->count() > 0) ? $cash_sales->sum('payment') : 0;
+        $cash =  ($cash_sales->count() > 0) ? $cash_sales->sum('total_amount') : 0;
         $delivery =  ($delivery_sales->count() > 0) ? $delivery_sales->sum('total_amount') : 0;
         $charge =  ($charge_sales->count() > 0) ? $charge_sales->sum('total_amount') : 0;
 
