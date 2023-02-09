@@ -32,15 +32,25 @@ class OrderController extends Controller
     {
         $keywords = $request->keywords;
         $customer_id = $request->customer_id;
+
+        $start_date = $request->start_date;
+        $end_date = $request->end_date;
         
         if($customer_id == 0) {
 
             $order = Order::where(function ($query) use ($keywords) {
                 if ($keywords) {
                     $query->where('transaction_number', 'like', '%' . $keywords . '%')
-                        ->Orwhere('sales_order_number', 'like', '%' . $keywords . '%');
+                        ->Orwhere('sales_order_number', 'like', '%' . $keywords . '%')
+                        ->orWhereHas('user', function ($query) use ($keywords){
+                            if($keywords) {
+                                $query->where('name', 'like', '%' . $keywords . '%');
+                            }
+                        });
                 }
             })
+                ->where('sales_date', '>=', $start_date)
+                ->where('sales_date', '<=', $end_date)
                 ->with('customer', 'user', 'order_details')
                 ->orderBy('id', 'DESC')
                 ->paginate();
