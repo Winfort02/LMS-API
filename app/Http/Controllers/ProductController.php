@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File;
 
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Exception;
 
 use Carbon\Carbon;
@@ -271,9 +272,9 @@ class ProductController extends Controller
 
                 $product = Product::where('quantity', '<=', 0)
                     ->with([
-                        'suppliers', 
+                        'brands', 
                         'order_details' => function ($query) {
-                            $query->selectRaw('sum(quantity) as quantity, sum(sub_total) as total, product_id')->groupBy('product_id');
+                            $query->join('orders', 'orders.id', '=', 'order_id')->selectRaw('SUM(CASE WHEN orders.order_status = "Completed" THEN quantity ELSE 0 END) AS sold, SUM(CASE WHEN orders.order_status = "Cancel" THEN quantity ELSE 0 END) AS cancel, product_id')->groupBy('product_id');
                         },
                         'product_stock_in' => function ($query) {
                             $query->selectRaw('sum(quantity) as quantity, product_id')->groupBy('product_id');
@@ -294,9 +295,9 @@ class ProductController extends Controller
                 $product = Product::where('supplier_id', $supplier)
                     ->where('quantity', '<=', 0)
                     ->with([
-                        'suppliers', 
+                        'brands', 
                         'order_details' => function ($query) {
-                            $query->selectRaw('sum(quantity) as quantity, sum(sub_total) as total, product_id')->groupBy('product_id');
+                            $query->join('orders', 'orders.id', '=', 'order_id')->selectRaw('SUM(CASE WHEN orders.order_status = "Completed" THEN quantity ELSE 0 END) AS sold, SUM(CASE WHEN orders.order_status = "Cancel" THEN quantity ELSE 0 END) AS cancel, product_id')->groupBy('product_id');
                         },
                         'product_stock_in' => function ($query) {
                             $query->selectRaw('sum(quantity) as quantity, product_id')->groupBy('product_id');
@@ -317,9 +318,9 @@ class ProductController extends Controller
 
                 $product = Product::where('quantity', '>', 0)
                     ->with([
-                        'suppliers', 
+                        'brands', 
                         'order_details' => function ($query) {
-                            $query->selectRaw('sum(quantity) as quantity, sum(sub_total) as total, product_id')->groupBy('product_id');
+                            $query->join('orders', 'orders.id', '=', 'order_id')->selectRaw('SUM(CASE WHEN orders.order_status = "Completed" THEN quantity ELSE 0 END) AS sold, SUM(CASE WHEN orders.order_status = "Cancel" THEN quantity ELSE 0 END) AS cancel, product_id')->groupBy('product_id');
                         },
                         'product_stock_in' => function ($query) {
                             $query->selectRaw('sum(quantity) as quantity, product_id')->groupBy('product_id');
@@ -338,9 +339,9 @@ class ProductController extends Controller
                 $product = Product::where('supplier_id', $supplier)
                     ->where('quantity', '>', 0)
                     ->with([
-                        'suppliers', 
+                        'brands', 
                         'order_details' => function ($query) {
-                            $query->selectRaw('sum(quantity) as quantity, sum(sub_total) as total, product_id')->groupBy('product_id');
+                            $query->join('orders', 'orders.id', '=', 'order_id')->selectRaw('SUM(CASE WHEN orders.order_status = "Completed" THEN quantity ELSE 0 END) AS sold, SUM(CASE WHEN orders.order_status = "Cancel" THEN quantity ELSE 0 END) AS cancel, product_id')->groupBy('product_id');
                         },
                         'product_stock_in' => function ($query) {
                             $query->selectRaw('sum(quantity) as quantity, product_id')->groupBy('product_id');
@@ -360,9 +361,9 @@ class ProductController extends Controller
 
                 $product = Product::orderBy('id', 'ASC')
                     ->with([
-                        'suppliers', 
+                        'brands', 
                         'order_details' => function ($query) {
-                            $query->selectRaw('sum(quantity) as quantity, sum(sub_total) as total, product_id')->groupBy('product_id');
+                            $query->join('orders', 'orders.id', '=', 'order_id')->selectRaw('SUM(CASE WHEN orders.order_status = "Completed" THEN quantity ELSE 0 END) AS sold, SUM(CASE WHEN orders.order_status = "Cancel" THEN quantity ELSE 0 END) AS cancel, product_id')->groupBy('product_id');
                         },
                         'product_stock_in' => function ($query) {
                             $query->selectRaw('sum(quantity) as quantity, product_id')->groupBy('product_id');
@@ -379,9 +380,9 @@ class ProductController extends Controller
 
                 $product = Product::where('supplier_id', $supplier)
                     ->with([
-                        'suppliers', 
+                        'brands', 
                         'order_details' => function ($query) {
-                            $query->selectRaw('sum(quantity) as quantity, sum(sub_total) as total, product_id')->groupBy('product_id');
+                            $query->join('orders', 'orders.id', '=', 'order_id')->selectRaw('SUM(CASE WHEN orders.order_status = "Completed" THEN quantity ELSE 0 END) AS sold, SUM(CASE WHEN orders.order_status = "Cancel" THEN quantity ELSE 0 END) AS cancel, product_id')->groupBy('product_id');
                         },
                         'product_stock_in' => function ($query) {
                             $query->selectRaw('sum(quantity) as quantity, product_id')->groupBy('product_id');

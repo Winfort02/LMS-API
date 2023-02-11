@@ -63,6 +63,8 @@ class OrderController extends Controller
                         ->Orwhere('sales_order_number', 'like', '%' . $keywords . '%');
                 }
             })
+                ->where('sales_date', '>=', $start_date)
+                ->where('sales_date', '<=', $end_date)
                 ->with('customer', 'user', 'order_details')
                 ->orderBy('id', 'DESC')
                 ->paginate();
@@ -587,7 +589,7 @@ class OrderController extends Controller
         $start_date = $request->start_date;
         $end_date = $request->end_date;
 
-        $order_items = OrderDetail::with('product:id,product_name,unit,selling_price','order', 'order.customer', 'order.user:id,name')->whereHas('order', function ($query) use ($start_date, $end_date) {
+        $order_items = OrderDetail::with('product:id,brand_id,product_name,unit,selling_price,description', 'product.brands:id,description','order', 'order.customer', 'order.user:id,name')->whereHas('order', function ($query) use ($start_date, $end_date) {
             $query->where('sales_date', '>=', $start_date)->where('sales_date', '<=', $end_date);
         })->get();
 
