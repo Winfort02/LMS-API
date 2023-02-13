@@ -178,7 +178,9 @@ class DashboardController extends Controller
 
             $product = Product::where('id', $product_id)->get();
 
-            $order = OrderDetail::where('product_id', $product_id)->get();
+            $order = OrderDetail::where('product_id', $product_id)->whereHas('order', function($query){
+                $query->where('order_status', 'Completed');
+            })->get();
 
             $data = [
                 'label' => ['ON HAND', 'PRODUCT SOLD'],
