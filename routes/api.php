@@ -20,6 +20,8 @@ use App\Http\Controllers\StockReturnController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\UserLogController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\PaymentHistoryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -83,6 +85,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::apiResource('stock-return', StockReturnController::class);
 
     //Stock Orders
+    Route::get('orders/by-customer/status', [OrderController::class, 'show_all_orders_by_status']);
     Route::post('orders/order-item-summary-report', [OrderController::class, 'generate_order_items_summary_report']);
     Route::get('orders/by-customer/{customer_id}', [OrderController::class, 'show_orders_by_customer']);
     Route::get('orders/by-user/{user_id}', [OrderController::class, 'show_orders_by_user']);
@@ -101,4 +104,13 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
 
     //User Logs
     Route::get('user-logs/by-user/{user_id}', [UserLogController::class, 'show_all_logs_by_user']);
+
+    // Payments
+    Route::post('payments/generate-report', [PaymentController::class, 'generate_payment_report']);
+    Route::apiResource('payments', PaymentController::class);
+
+    //Payments History
+    Route::post('payment/generate-report/by/customer', [PaymentHistoryController::class, 'generate_customer_payment_history']);
+    Route::get('payment/history/{id}', [PaymentHistoryController::class, 'show_all_payment_history_by_payment']);
+
 });

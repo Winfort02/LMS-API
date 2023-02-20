@@ -13,17 +13,15 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('orders', function (Blueprint $table) {
+        Schema::create('payment_history', function (Blueprint $table) {
             $table->increments('id');
-            $table->integer('customer_id')->unsigned();
-            $table->foreign('customer_id')->references('id')->on('customers');
+            $table->integer('payment_id')->unsigned();
+            $table->foreign('payment_id')->references('id')->on('payments');
             $table->integer('user_id')->unsigned();
             $table->foreign('user_id')->references('id')->on('users');
-            $table->string('transaction_number');
-            $table->string('sales_order_number');
-            $table->date('sales_date');
-            $table->decimal('total_amount', 10, 2);
-            $table->boolean('status')->default(0);
+            $table->decimal('previous_payment', 10, 2);
+            $table->decimal('current_payment', 10, 2);
+            $table->date('date');
             $table->timestamps();
         });
     }
@@ -35,6 +33,6 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('orders');
+        Schema::dropIfExists('payment_history');
     }
 };

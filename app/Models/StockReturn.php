@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Carbon\Carbon;
 
 class StockReturn extends Model
 {
@@ -24,14 +25,17 @@ class StockReturn extends Model
 
     protected static function boot() {
         parent::boot();
-    
-        static::creating(function($model){
-            $max = self::max('transaction_number') ?? 0;
-            $no = intval($max) + 1;
+        
+            static::creating(function($model){
+                $date = Carbon::now()->format('Ymd');
+                $max = self::where('transaction_number', 'like', '%'.$date . '%')->max('transaction_number') ?? 0;
+                $no = substr($max,11,14);
+                $no++;
+                $no = str_pad($no, 4, '0', STR_PAD_LEFT);
+                $model->transaction_number = 'SR-'.$date.$no;
+            }); 
+        }
 
-            $model->transaction_number = str_pad($no, 10, '0', STR_PAD_LEFT);
-        }); 
-    }
 
     public function product()
     {

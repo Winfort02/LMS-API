@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\Payment;
+use App\Models\PaymentHistory;
 use App\Models\Order;
 use App\Models\Customer;
 use App\Models\OrderDetail;
@@ -92,6 +94,32 @@ class OrderController extends Controller
     }
 
 
+    public function show_all_orders_by_status() {
+
+       try {
+        
+            // $orders = Order::where('order_status', 'Completed')->where('status', false)->whereDoesntHave('payment')->get();
+            // $orders = Order::where('order_status', 'Completed')->where('status', false)->whereHas('payment', function($query){
+            //     $query->where('status', false);
+            // })->get();
+            $orders = Order::where('order_status', 'Completed')
+            ->where('status', false)
+            ->whereDoesntHave('payment', function ($query) {
+                $query->where('status', true);
+            })
+            ->get();
+            return OrderResource::collection($orders);
+
+       } catch (Exception $e) {
+
+            if($e->getCode() == 0) {
+                return response()->json(['message' => 'PAYMENTS NOT FOUND'], Response::HTTP_NOT_FOUND);
+            } else
+                return response()->json(['message' => 'SERVER ERROR'], Response::HTTP_INTERNAL_SERVER_ERROR);
+       }
+    }
+
+
     public function show_orders_by_customer(Request $request, $customer_id) {
 
         $orders = Order::where('customer_id', $customer_id)
@@ -111,29 +139,23 @@ class OrderController extends Controller
     public function store(Request $request)
     {
         $user = Auth::user();
-        $data = $request->only('customer_id', 'user_id', 'transaction_number', 'sales_order_number', 'sales_date', 'payment_type', 'sales_type', 'total_amount', 'payment', 'remarks', 'status', 'items');
-
+        $data = $request->only('customer_id', 'user_id', 'transaction_number', 'sales_order_number', 'sales_date', 'sales_type', 'total_amount', 'remarks', 'status', 'items', 'cash');
         $customer = Customer::findOrFail($request->customer_id);
-
         $order = Order::create([
             'customer_id' => $request->customer_id,
             'user_id' => $request->user_id,
             'transaction_number' => $request->transaction_number,
             'sales_order_number' => $request->sales_order_number,
             'sales_date' => $request->sales_date,
-            'payment_type' => $request->payment_type,
-            'payment' => $request->payment,
             'total_amount' => $request->total_amount,
             'order_status' => 'Completed',
             'sales_type' => $request->sales_type,
             'remarks' => $request->remarks,
             'status' => $request->status
         ]);
-
+    
         if(count($data['items']) > 0) {
-
             foreach($data['items'] as $item) {
-
                 $items[] = [
                     'id' => 0,
                     'order_id' => $order->id,
@@ -145,9 +167,8 @@ class OrderController extends Controller
                     'created_at' => Carbon::now(),
                     'updated_at' => Carbon::now()
                 ];
-
                 $product = Product::find($item['product_id']);
-                $product->quantity = $product->quantity - $item['quantity'];
+                $product->quantity -= $item['quantity'];
                 $product->update();
             }
             OrderDetail::insert($items);
@@ -156,12 +177,41 @@ class OrderController extends Controller
         UserLog::create([
             'user_id' => $user->id,
             'logs' => 'Generate Sales Order',
-            'remarks' => 'Add new sales order to customer '. $customer->customer_name. ' with the total amount of '. $request->total_amount,
+            'remarks' => 'Add new sales order to customer '. $customer->customer_name. ' with the total amount of '. $order->total_amount,
             'date' => Carbon::now()->format('Y-m-d'),
             'created_at' => Carbon::now(),
             'updated_at' => Carbon::now()
         ]);
-        
+    
+        if($request->sales_type == 'CASH') {
+            $payments = Payment::create([
+                'order_id' => $order->id,
+                'customer_id' => $order->customer_id,
+                'user_id' => $order->user_id,
+                'payment_date' => Carbon::now(),
+                'due_amount' => $order->total_amount,
+                'payment_type' => 'CASH',
+                'amount' => ($request->cash > $order->total_amount) ? $order->total_amount : $request->cash,
+                'remarks' => 'Auto generated upon creating walk-in customer',
+                'status' => true,
+            ]);
+            PaymentHistory::create([
+                'payment_id' => $payments->id,
+                'user_id' => Auth::user()->id,
+                'previous_payment' => $payments->amount,
+                'current_payment' => $payments->amount,
+                'date' => Carbon::now(),
+            ]);
+
+            UserLog::create([
+                'user_id' => $user->id,
+                'logs' => 'Payments',
+                'remarks' => 'Added payment '. $payments->amount . ' to ' . $customer->customer_name. ' - ' . $order->transaction_number,
+                'date' => Carbon::now()->format('Y-m-d'),
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now()
+            ]);
+        }
         return new OrderResource($order);
     }
 
@@ -173,7 +223,7 @@ class OrderController extends Controller
      */
     public function show($id)
     {
-        $order = Order::with('customer', 'user', 'order_details')->findOrFail($id);
+        $order = Order::with('customer', 'user', 'order_details', 'order_details.product')->findOrFail($id);
         return new OrderResource($order);
     }
 
@@ -188,87 +238,68 @@ class OrderController extends Controller
     {
         $user = Auth::user();
         $order = Order::with('order_details')->find($id);
+    
         $order->customer_id = $request->customer_id;
         $order->sales_date = $request->sales_date;
-        $order->payment_type = $request->payment_type;
         $order->remarks = $request->remarks;
-        $order->status = $request->status;
         $order->sales_type = $request->sales_type;
-
+    
         if($request->order_status === 'Cancel' && $order->order_status === 'Completed' && $request->order_status !== 'Completed') {
-
             if($order->order_details->count() > 0) {
-                
-                foreach($order->order_details as $items) {
 
+                foreach($order->order_details as $items) {
                     $product = Product::find($items->product_id);
                     $product->quantity += $items->quantity;
                     $product->update();
                 }
             }
+            $payment = Payment::where('order_id', $order->id)->where('status', true)->first();
             
-            if($request->status == false) {
-                $order->payment = 0;
+            if($payment) {
+                $payment->status = false;
+                $payment->remarks = 'Canceled payment';
+                $payment->amount = 0;
+                $payment->save();
+
+                PaymentHistory::create([
+                    'payment_id' => $payment->id,
+                    'user_id' => Auth::user()->id,
+                    'previous_payment' => $payment->amount,
+                    'current_payment' => $payment->amount,
+                    'date' => Carbon::now(),
+                ]);
             }
             $order->order_status = $request->order_status;
+            $order->status = false;
             $order->save();
             $order->refresh();
 
         } else if ($request->order_status === 'Completed' && $order->order_status === 'Cancel' && $request->order_status !== 'Cancel') {
 
-
             if($order->order_details->count() > 0) {
-
                 foreach($order->order_details as $items) {
 
                     $product = Product::find($items->product_id);
 
-                    if($product->quantity <= 0) {
+                    if($product->quantity < $items->quantity) {
 
-                        return response()->json(['message' => 'Product '. $product->name . 'Out of stock']);
+                        return response()->json(['message' => 'You dont have enough quantity for this product '. $product->product_name], Response::HTTP_INTERNAL_SERVER_ERROR);
                     }
-
                     $product->quantity -= $items->quantity;
                     $product->update();
-                }
-
-                if($request->status == false) {
-                    $order->payment = 0;
-                } else {
-                    $order->payment = $order->payment + $request->payment;
+                    $product->refresh();
                 }
                 $order->order_status = $request->order_status;
+                $order->status = $request->status;
                 $order->save();
                 $order->refresh();
-
             }
         } else if ($order->order_status === $request->order_status) {
-            
-            if($request->payment >= 0) {
-
-                
-                if($request->status == false) {
-                    $order->payment = 0;
-                } else {
-                    $order->payment = $order->payment + $request->payment;
-                }
-                $order->order_status = $request->order_status;
-                $order->save();
-                $order->refresh();
-            } else {
-
-                if($request->status == false) {
-                    $order->payment = 0;
-                } else {
-                    $order->payment = $order->payment + $request->payment;
-                }
-                $order->order_status = $request->order_status;
-                $order->save();
-                $order->refresh();
-            }
-            
+            $order->order_status = $request->order_status;
+            $order->status = $request->status;
+            $order->save();
+            $order->refresh();
         }
-
         UserLog::create([
             'user_id' => $user->id,
             'logs' => 'Sales',
@@ -277,7 +308,6 @@ class OrderController extends Controller
             'created_at' => Carbon::now(),
             'updated_at' => Carbon::now()
         ]);
-        
         return new OrderResource($order);
     }
 
@@ -305,283 +335,26 @@ class OrderController extends Controller
         return $pdf->stream();
     }
 
-    public function generate_sales_order_report(Request $request)
-    {
-
+    public function generate_sales_order_report(Request $request) {
         $start_date = $request->start_date;
         $end_date = $request->end_date;
-        $payment_type = $request->payment_type;
         $order_status = $request->order_status;
-        $payment_status = $request->payment_status;
-        $total_sales = 0;
-            
-        if($payment_type == 'CHECK/PDC') {
-
-            if($order_status == 'CANCEL') {
-
-                if($payment_status == 'PAID') {
-
-                    $order = Order::where('payment_type', '=', 'CHECK/PDC')
-                            ->where('order_status', '=', 'Cancel')
-                            ->where('status', true)
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                } else if ($payment_status == 'PENDING') {
-
-                    $order = Order::where('payment_type', '=', 'CHECK/PDC')
-                            ->where('order_status', '=', 'Cancel')
-                            ->where('status', false)
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                } else {
-
-                    $order = Order::where('payment_type', '=', 'CHECK/PDC')
-                            ->where('order_status', '=', 'Cancel')
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                }
-
-            } else if ($order_status == 'COMPLETED') {
-
-                if($payment_status == 'PAID') {
-
-                    $order = Order::where('payment_type', '=', 'CHECK/PDC')
-                            ->where('order_status', '=', 'Completed')
-                            ->where('status', true)
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                } else if ($payment_status == 'PENDING') {
-
-                    $order = Order::where('payment_type', '=', 'CHECK/PDC')
-                            ->where('order_status', '=', 'Completed')
-                            ->where('status', false)
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                } else {
-
-                    $order = Order::where('payment_type', '=', 'CHECK/PDC')
-                            ->where('order_status', '=', 'Completed')
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                }
-            } else {
-
-                if($payment_status == 'PAID') {
-
-                    $order = Order::where('payment_type', '=', 'CHECK/PDC')
-                            ->where('status', true)
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                } else if ($payment_status == 'PENDING') {
-
-                    $order = Order::where('payment_type', '=', 'CHECK/PDC')
-                            ->where('status', false)
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                } else {
-
-                    $order = Order::where('payment_type', '=', 'CHECK/PDC')
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                }
-            }
-
-        } else if ($payment_type == 'CASH') {
-
-            if($order_status == 'CANCEL') {
-
-                if($payment_status == 'PAID') {
-
-                    $order = Order::where('payment_type', '=', 'CASH')
-                            ->where('order_status', '=', 'Cancel')
-                            ->where('status', true)
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                } else if ($payment_status == 'PENDING') {
-
-                    $order = Order::where('payment_type', '=', 'CASH')
-                            ->where('order_status', '=', 'Cancel')
-                            ->where('status', false)
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                } else {
-
-                    $order = Order::where('payment_type', '=', 'CASH')
-                            ->where('order_status', '=', 'Cancel')
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                }
-
-            } else if ($order_status == 'COMPLETED') {
-
-                if($payment_status == 'PAID') {
-
-                    $order = Order::where('payment_type', '=', 'CASH')
-                            ->where('order_status', '=', 'Completed')
-                            ->where('status', true)
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                } else if ($payment_status == 'PENDING') {
-
-                    $order = Order::where('payment_type', '=', 'CASH')
-                            ->where('order_status', '=', 'Completed')
-                            ->where('status', false)
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                } else {
-
-                    $order = Order::where('payment_type', '=', 'CASH')
-                            ->where('order_status', '=', 'Completed')
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                }
-            } else {
-
-                if($payment_status == 'PAID') {
-
-                    $order = Order::where('payment_type', '=', 'CASH')
-                            ->where('status', true)
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                } else if ($payment_status == 'PENDING') {
-
-                    $order = Order::where('payment_type', '=', 'CASH')
-                            ->where('status', false)
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                } else {
-
-                    $order = Order::where('payment_type', '=', 'GCASH')
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                }
-            }
+        if($order_status == 'ALL') {
+            $order = Order::where('sales_date', '>=', $start_date)
+                    ->where('sales_date', '<=', $end_date)->with(['customer', 'order_details'])
+                    ->get();
         } else {
-
-            if($order_status == 'CANCEL') {
-
-                if($payment_status == 'PAID') {
-
-                    $order = Order::where('order_status', '=', 'Cancel')
-                            ->where('status', true)
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                } else if ($payment_status == 'PENDING') {
-
-                    $order = Order::where('order_status', '=', 'Cancel')
-                            ->where('status', false)
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                } else {
-
-                    $order = Order::where('order_status', '=', 'Cancel')
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                }
-
-            } else if ($order_status == 'COMPLETED') {
-
-                if($payment_status == 'PAID') {
-
-                    $order = Order::where('order_status', '=', 'Completed')
-                            ->where('status', true)
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                } else if ($payment_status == 'PENDING') {
-
-                    $order = Order::where('order_status', '=', 'Completed')
-                            ->where('status', false)
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                } else {
-
-                    $order = Order::where('order_status', '=', 'Completed')
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                }
-            } else {
-
-                if($payment_status == 'PAID') {
-
-                    $order = Order::where('status', true)
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                } else if ($payment_status == 'PENDING') {
-
-                    $order = Order::where('status', false)
-                            ->where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                } else {
-
-                    $order = Order::where('sales_date', '>=', $start_date)
-                            ->where('sales_date', '<=', $end_date)
-                            ->with(['customer'])
-                            ->get();
-                }
-            }
+            $order = Order::where('sales_date', '>=', $start_date)
+                    ->where('sales_date', '<=', $end_date)
+                    ->when($order_status, function($q, $order_status) {
+                        return $q->where('order_status', $order_status);
+                    })->with(['customer', 'order_details'])
+                    ->get();
         }
-        if($order->count() > 0) {
-            $total_sales = ($order) ? $order->sum('total_amount') : 0;
-            $total_cash = ($order) ? $order->sum('total_amount') : 0;
-        } else {
-            $total_sales = 0;
-            $total_cash = 0;
-        }
+        $total_sales = ($order) ? $order->sum('total_amount') : 0;
+        $total_cash = ($order) ? $order->sum('total_amount') : 0;
         $pdf = PDF::loadView('pdf.sales-order-report', ['data' => $order, 'start_date' => $start_date, 'end_date' => $end_date, 'total_sales' => $total_sales, 'total_cash' => $total_cash])->setPaper('a4', 'landscape');
         return $pdf->stream();
-
     }
 
     public function generate_order_items_summary_report(Request $request) 
@@ -595,10 +368,8 @@ class OrderController extends Controller
 
         $total = ($order_items->count() > 0) ? $order_items->sum('sub_total') : 0;
         $total_qty = ($order_items->count() > 0) ? $order_items->sum('quantity') : 0;
-        // $total_price = ($order_items->count() > 0) ? $order_items->sum('price') : 0;
         $total_discount = ($order_items->count() > 0) ? $order_items->sum('discount') : 0;
 
-        // return response()->json(['data' => $order_items, 'start_date' => $start_date, 'end_date' => $end_date, 'total' => $total], Response::HTTP_OK);
 
         $pdf = PDF::loadView('pdf.sales-order-summary-report', ['data' => $order_items, 'start_date' => $start_date, 'end_date' => $end_date, 'total' => $total, 'total_qty' => $total_qty, 'total_discount' => $total_discount])->setPaper('a4', 'landscape');
         return $pdf->stream();

@@ -268,7 +268,6 @@ class ProductController extends Controller
 
             if($supplier === 0) {
 
-                // $product = Product::where('quantity', '<=', 0)->with(['suppliers', 'order_details'])->orderBy('id', 'ASC')->get();
 
                 $product = Product::where('quantity', '<=', 0)
                     ->with([

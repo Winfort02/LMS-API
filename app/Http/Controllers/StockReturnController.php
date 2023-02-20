@@ -77,12 +77,18 @@ class StockReturnController extends Controller
 
         $user = Auth::user();
         $data = $request->only('supplier_id', 'product_id', 'user_id', 'transaction_number', 'van_number', 'date', 'quantity', 'remarks');
-        $stock_return = StockReturn::create($data);
-        $product = Product::find($stock_return->product_id);
+        $product = Product::find($request->product_id);
+
         if($product != null) {
-            $product->quantity = $product->quantity - $stock_return->quantity;
+            if($request->quantity > $product->quantity) {
+                
+                return response()->json(['message' => 'You dont have enough quantity to return',], Response::HTTP_NOT_FOUND);
+            }
+            $product->quantity = $product->quantity - $request->quantity;
             $product->update();
         }
+        
+        $stock_return = StockReturn::create($data);
 
         UserLog::create([
             'user_id' => $user->id,

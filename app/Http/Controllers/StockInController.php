@@ -33,6 +33,11 @@ class StockInController extends Controller
         $stock_in = StockIn::where(function ($query) use ($keywords) {
             if ($keywords) {
                 $query->where('transaction_number', 'like', '%' . $keywords . '%')
+                    ->orWhereHas('product', function ($query) use ($keywords){
+                        if($keywords) {
+                            $query->where('product_name', 'like', '%' . $keywords . '%');
+                        }
+                    })
                     ->Orwhere('van_number', 'like', '%' . $keywords . '%');
             }
         })

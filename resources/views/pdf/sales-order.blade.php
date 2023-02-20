@@ -30,7 +30,7 @@
           <td style="text-transform: uppercase;"> PAYMENT TYPE :  {{ $data->payment_type }}</td>
           <td style="text-transform: uppercase;"> ADDRESS:  {{ $data->customer->address }}  </td>
           <td style="text-transform: uppercase;"> CONTACT NUMBER: {{ $data->customer->phone_number }} </td>
-          <td style="text-transform: uppercase;" colspan="2"> BALANCE: P {{ number_format(($data->total_amount - $data->payment) > 0 ? ($data->total_amount - $data->payment) : 0 , 2) }}  </td>
+          <td style="text-transform: uppercase;" colspan="2"></td>
         </tr>
         <tr>
           <td> REMARKS : </td>
@@ -55,7 +55,7 @@
 
         @foreach($data->order_details as $item) 
           <tr>
-            <td>{{ $item->product->product_name }}</td>
+            <td>{{ $item->product->product_name }} - {{ $item->product->description }}</td>
             <td>{{ $item->quantity }}</td>
             <td style="text-align: right;">P {{ number_format($item->price, 2) }}</td>
             <td style="text-align: right;">P {{ number_format($item->discount, 2) }}</td>
@@ -72,10 +72,6 @@
         <tr>
           <td colspan="3" class="text-right"> Total Discount </td>
           <td colspan="2" style="text-align: right;"> P {{ number_format($total_discount, 2) }} </td>
-        </tr>
-        <tr>
-          <td colspan="3" class="text-right"> Cash Rendered </td>
-          <td colspan="2" style="text-align: right;"> P {{ number_format($data->payment, 2) }} </td>
         </tr>
         <tr>
           <td colspan="5" style="background-color: #333;"></td>
